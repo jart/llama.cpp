@@ -51,7 +51,9 @@ static bool try_parse_ftype(const std::string & ftype_str_in, llama_ftype & ftyp
             return true;
         }
     }
+#ifndef LLAMA_NO_EXCEPTIONS
     try {
+#endif
         int ftype_int = std::stoi(ftype_str);
         for (auto & it : QUANT_OPTIONS) {
             if (it.ftype == ftype_int) {
@@ -60,10 +62,12 @@ static bool try_parse_ftype(const std::string & ftype_str_in, llama_ftype & ftyp
                 return true;
             }
         }
+#ifndef LLAMA_NO_EXCEPTIONS
     }
     catch (...) {
         // stoi failed
     }
+#endif
     return false;
 }
 
@@ -154,13 +158,17 @@ int main(int argc, char ** argv) {
 
     // parse nthreads
     if (argc > arg_idx) {
+#ifndef LLAMA_NO_EXCEPTIONS
         try {
+#endif
             params.nthread = std::stoi(argv[arg_idx]);
+#ifndef LLAMA_NO_EXCEPTIONS
         }
         catch (const std::exception & e) {
             fprintf(stderr, "%s: invalid nthread '%s' (%s)\n", __func__, argv[arg_idx], e.what());
             return 1;
         }
+#endif
     }
 
     print_build_info();

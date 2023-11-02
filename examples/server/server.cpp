@@ -809,8 +809,10 @@ struct llama_server_context
                         if (end_pos != std::string::npos)
                         {
                             std::string image_id = prompt.substr(pos, end_pos - pos);
+#ifndef LLAMA_NO_EXCEPTIONS
                             try
                             {
+#endif
                                 int img_id = std::stoi(image_id);
                                 bool found = false;
                                 for (slot_image &img : slot->images)
@@ -827,11 +829,13 @@ struct llama_server_context
                                     slot->images.clear();
                                     return false;
                                 }
+#ifndef LLAMA_NO_EXCEPTIONS
                             } catch (const std::invalid_argument& e) {
                                 LOG_TEE("Invalid image number id in prompt\n");
                                 slot->images.clear();
                                 return false;
                             }
+#endif
                         }
                     }
                     slot->prompt = "";
@@ -2440,6 +2444,7 @@ int main(int argc, char **argv)
 
     svr.set_logger(log_server_request);
 
+#ifndef LLAMA_NO_EXCEPTIONS
     svr.set_exception_handler([](const httplib::Request &, httplib::Response &res, std::exception_ptr ep)
             {
                 const char fmt[] = "500 Internal Server Error\n%s";
@@ -2459,6 +2464,7 @@ int main(int argc, char **argv)
                 res.set_content(buf, "text/plain");
                 res.status = 500;
             });
+#endif
 
     svr.set_error_handler([](const httplib::Request &, httplib::Response &res)
             {

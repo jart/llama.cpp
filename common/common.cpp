@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cerrno>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -537,6 +538,7 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             llama_token key;
             char sign;
             std::string value_str;
+#ifndef LLAMA_NO_EXCEPTIONS
             try {
                 if (ss >> key && ss >> sign && std::getline(ss, value_str) && (sign == '+' || sign == '-')) {
                     sparams.logit_bias[key] = std::stof(value_str) * ((sign == '-') ? -1.0f : 1.0f);
@@ -547,6 +549,19 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
+#else
+            if (ss >> key && ss >> sign && std::getline(ss, value_str) && (sign == '+' || sign == '-')) {
+                errno = 0;
+                sparams.logit_bias[key] = std::stof(value_str) * ((sign == '-') ? -1.0f : 1.0f);
+                if (errno) {
+                    invalid_param = true;
+                    break;
+                }
+            } else {
+                invalid_param = true;
+                break;
+            }
+#endif
         } else if (arg == "-h" || arg == "--help") {
             gpt_print_usage(argc, argv, default_params);
 #ifndef LOG_DISABLE_LOGS
