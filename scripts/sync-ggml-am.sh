@@ -113,6 +113,8 @@ if [ -f $SRC_LLAMA/ggml-src.patch ]; then
     # src/ggml-sycl.h             -> ggml-sycl.h
     # src/ggml-vulkan.cpp         -> ggml-vulkan.cpp
     # src/ggml-vulkan.h           -> ggml-vulkan.h
+    # src/sgemm.cpp               -> sgemm.cpp
+    # src/sgemm.h                 -> sgemm.h
     # include/ggml/ggml.h         -> ggml.h
     # include/ggml/ggml-alloc.h   -> ggml-alloc.h
     # include/ggml/ggml-backend.h -> ggml-backend.h
@@ -147,6 +149,8 @@ if [ -f $SRC_LLAMA/ggml-src.patch ]; then
         -e 's/src\/ggml-sycl\.h/ggml-sycl.h/g' \
         -e 's/src\/ggml-vulkan\.cpp/ggml-vulkan.cpp/g' \
         -e 's/src\/ggml-vulkan\.h/ggml-vulkan.h/g' \
+        -e 's/src\/sgemm\.cpp/sgemm.cpp/g' \
+        -e 's/src\/sgemm\.h/sgemm.h/g' \
         -e 's/include\/ggml\/ggml\.h/ggml.h/g' \
         -e 's/include\/ggml\/ggml-alloc\.h/ggml-alloc.h/g' \
         -e 's/include\/ggml\/ggml-backend\.h/ggml-backend.h/g' \

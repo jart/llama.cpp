@@ -30,6 +30,7 @@ let package = Package(
             ],
             sources: [
                 "ggml.c",
+                "sgemm.cpp",
                 "llama.cpp",
                 "unicode.cpp",
                 "unicode-data.cpp",
