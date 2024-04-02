@@ -93,6 +93,10 @@ inline float unhalf(half d) {
     return GGML_FP16_TO_FP32(d);
 }
 
+inline float unhalf(ggml_bf16_t d) {
+    return GGML_BF16_TO_FP32(d);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // VECTORIZED ARITHMETIC OPERATIONS
 
@@ -209,6 +213,38 @@ template <> inline __m512 load(const half *p) {
 }
 #endif // __AVX512F__
 
+#if defined(__AVX512BF16__)
+template <> inline __m512bh load(const float *p) {
+    return _mm512_cvtne2ps_pbh(_mm512_loadu_ps(p + 16),
+                               _mm512_loadu_ps(p));
+}
+template <> inline __m512bh load(const ggml_bf16_t *p) {
+    return (__m512bh)_mm512_loadu_ps((const float *)p);
+}
+#endif
+
+#if defined(__AVX2__) || defined(__AVX512F__)
+template <> inline __m256 load(const ggml_bf16_t *p) {
+    return _mm256_castsi256_ps(
+        _mm256_slli_epi32(
+            _mm256_cvtepu16_epi32(
+                _mm_loadu_si128(
+                    (const __m128i *)p)),
+            16));
+}
+#endif
+
+#if defined(__AVX512BF16__) && defined(__AVX512VL__)
+template <> inline __m512 load(const ggml_bf16_t *p) {
+    return _mm512_castsi512_ps(
+        _mm512_slli_epi32(
+            _mm512_cvtepu16_epi32(
+                _mm256_loadu_si256(
+                    (const __m256i *)p)),
+            16));
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ABSTRACTIONS
 
@@ -239,10 +275,20 @@ inline U madder(T a, T b, U c, U *e) {
     return t;
 }
 
+#if defined(__AVX512BF16__)
+template <> inline __m512 madd(__m512bh x, __m512bh y, __m512 z) {
+    return _mm512_dpbf16_ps(z, x, y);
+}
+template <> inline __m512 madder(__m512bh x, __m512bh y, __m512 z, __m512 *e) {
+    return _mm512_dpbf16_ps(z, x, y);
+    (void)e;
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // FLOATING POINT MATRIX MULTIPLICATION
 
-template <int KN, typename V, typename TA, typename TB, typename TC>
+template <int KN, typename D, typename V, typename TA, typename TB, typename TC>
 class tinyBLAS {
   public:
     tinyBLAS(int k,
@@ -292,31 +338,31 @@ class tinyBLAS {
 
     NOINLINE void gemm5x5(int m0, int m, int n0, int n) {
         BEGIN_KERNEL(5, 5)
-        V c00 = {0};
-        V c01 = {0};
-        V c02 = {0};
-        V c03 = {0};
-        V c04 = {0};
-        V c10 = {0};
-        V c11 = {0};
-        V c12 = {0};
-        V c13 = {0};
-        V c14 = {0};
-        V c20 = {0};
-        V c21 = {0};
-        V c22 = {0};
-        V c23 = {0};
-        V c24 = {0};
-        V c30 = {0};
-        V c31 = {0};
-        V c32 = {0};
-        V c33 = {0};
-        V c34 = {0};
-        V c40 = {0};
-        V c41 = {0};
-        V c42 = {0};
-        V c43 = {0};
-        V c44 = {0};
+        D c00 = {0};
+        D c01 = {0};
+        D c02 = {0};
+        D c03 = {0};
+        D c04 = {0};
+        D c10 = {0};
+        D c11 = {0};
+        D c12 = {0};
+        D c13 = {0};
+        D c14 = {0};
+        D c20 = {0};
+        D c21 = {0};
+        D c22 = {0};
+        D c23 = {0};
+        D c24 = {0};
+        D c30 = {0};
+        D c31 = {0};
+        D c32 = {0};
+        D c33 = {0};
+        D c34 = {0};
+        D c40 = {0};
+        D c41 = {0};
+        D c42 = {0};
+        D c43 = {0};
+        D c44 = {0};
         for (int l = 0; l < k; l += KN) {
             V k0 = load<V>(B + ldb * (j + 0) + l);
             V k1 = load<V>(B + ldb * (j + 1) + l);
@@ -384,18 +430,18 @@ class tinyBLAS {
 
     NOINLINE void gemm3x4(int m0, int m, int n0, int n) {
         BEGIN_KERNEL(3, 4)
-        V c00 = {0};
-        V c01 = {0};
-        V c02 = {0};
-        V c03 = {0};
-        V c10 = {0};
-        V c11 = {0};
-        V c12 = {0};
-        V c13 = {0};
-        V c20 = {0};
-        V c21 = {0};
-        V c22 = {0};
-        V c23 = {0};
+        D c00 = {0};
+        D c01 = {0};
+        D c02 = {0};
+        D c03 = {0};
+        D c10 = {0};
+        D c11 = {0};
+        D c12 = {0};
+        D c13 = {0};
+        D c20 = {0};
+        D c21 = {0};
+        D c22 = {0};
+        D c23 = {0};
         for (int l = 0; l < k; l += KN) {
             V k0 = load<V>(B + ldb * (j + 0) + l);
             V k1 = load<V>(B + ldb * (j + 1) + l);
@@ -434,10 +480,10 @@ class tinyBLAS {
 
     NOINLINE void gemm1x4(int m0, int m, int n0, int n) {
         BEGIN_KERNEL(1, 4)
-        V c00 = {0}, e00 = {0};
-        V c01 = {0}, e01 = {0};
-        V c02 = {0}, e02 = {0};
-        V c03 = {0}, e03 = {0};
+        D c00 = {0}, e00 = {0};
+        D c01 = {0}, e01 = {0};
+        D c02 = {0}, e02 = {0};
+        D c03 = {0}, e03 = {0};
         for (int l = 0; l < k; l += KN) {
             V a = load<V>(A + lda * (i + 0) + l);
             c00 = madder(a, load<V>(B + ldb * (j + 0) + l), c00, &e00);
@@ -454,10 +500,10 @@ class tinyBLAS {
 
     NOINLINE void gemm4x1(int m0, int m, int n0, int n) {
         BEGIN_KERNEL(4, 1)
-        V c00 = {0}, e00 = {0};
-        V c10 = {0}, e10 = {0};
-        V c20 = {0}, e20 = {0};
-        V c30 = {0}, e30 = {0};
+        D c00 = {0}, e00 = {0};
+        D c10 = {0}, e10 = {0};
+        D c20 = {0}, e20 = {0};
+        D c30 = {0}, e30 = {0};
         for (int l = 0; l < k; l += KN) {
             V b = load<V>(B + ldb * (j + 0) + l);
             c00 = madder(load<V>(A + lda * (i + 0) + l), b, c00, &e00);
@@ -474,7 +520,7 @@ class tinyBLAS {
 
     NOINLINE void gemm1x1(int m0, int m, int n0, int n) {
         BEGIN_KERNEL(1, 1)
-        V c = {0}, e = {0};
+        D c = {0}, e = {0};
         for (int l = 0; l < k; l += KN)
             c = madder(load<V>(A + lda * i + l),
                        load<V>(B + ldb * j + l), c, &e);
@@ -965,7 +1011,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<16, __m512, float, float, float> tb{
+        tinyBLAS<16, __m512, __m512, float, float, float> tb{
             k, (const float *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
@@ -977,7 +1023,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<8, __m256, float, float, float> tb{
+        tinyBLAS<8, __m256, __m256, float, float, float> tb{
             k, (const float *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
@@ -991,7 +1037,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<4, float32x4_t, float, float, float> tb{
+        tinyBLAS<4, float32x4_t, float32x4_t, float, float, float> tb{
             k, (const float *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
@@ -1011,7 +1057,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<16, __m512, half, float, float> tb{
+        tinyBLAS<16, __m512, __m512, half, float, float> tb{
             k, (const half *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
@@ -1025,7 +1071,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<8, __m256, half, float, float> tb{
+        tinyBLAS<8, __m256, __m256, half, float, float> tb{
             k, (const half *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
@@ -1041,7 +1087,7 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<8, float16x8_t, half, half, float> tb{
+        tinyBLAS<8, float16x8_t, float16x8_t, half, half, float> tb{
             k, (const half *)A, lda,
             (const half *)B, ldb,
             (float *)C, ldc,
@@ -1057,8 +1103,73 @@ bool llamafile_sgemm(int m, int n, int k, const void *A, int lda, const void *B,
             return false;
         if (task != GGML_TASK_TYPE_COMPUTE)
             return true;
-        tinyBLAS<4, float32x4_t, half, float, float> tb{
+        tinyBLAS<4, float32x4_t, float32x4_t, half, float, float> tb{
             k, (const half *)A, lda,
+            (const float *)B, ldb,
+            (float *)C, ldc,
+            ith, nth};
+        tb.matmul(m, n);
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    case GGML_TYPE_BF16: {
+#if defined(__AVX512BF16__)
+        switch (Btype) {
+        case GGML_TYPE_BF16: {
+            if (k % 32)
+                return false;
+            if (task != GGML_TASK_TYPE_COMPUTE)
+                return true;
+            tinyBLAS<32, __m512, __m512bh, ggml_bf16_t, ggml_bf16_t, float> tb{
+                k, (const ggml_bf16_t *)A, lda,
+                (const ggml_bf16_t *)B, ldb,
+                (float *)C, ldc,
+                ith, nth};
+            tb.matmul(m, n);
+            return true;
+        }
+        case GGML_TYPE_F32: {
+            if (k % 16)
+                return false;
+            if (task != GGML_TASK_TYPE_COMPUTE)
+                return true;
+            tinyBLAS<16, __m512, __m512, ggml_bf16_t, float, float> tb{
+                k, (const ggml_bf16_t *)A, lda,
+                (const float *)B, ldb,
+                (float *)C, ldc,
+                ith, nth};
+            tb.matmul(m, n);
+            return true;
+        }
+        default:
+            return false;
+        }
+#elif defined(__AVX512F__)
+        if (k % 16)
+            return false;
+        if (Btype != GGML_TYPE_F32)
+            return false;
+        if (task != GGML_TASK_TYPE_COMPUTE)
+            return true;
+        tinyBLAS<16, __m512, __m512, ggml_bf16_t, float, float> tb{
+            k, (const ggml_bf16_t *)A, lda,
+            (const float *)B, ldb,
+            (float *)C, ldc,
+            ith, nth};
+        tb.matmul(m, n);
+        return true;
+#elif defined(__AVX2__)
+        if (k % 8)
+            return false;
+        if (Btype != GGML_TYPE_F32)
+            return false;
+        if (task != GGML_TASK_TYPE_COMPUTE)
+            return true;
+        tinyBLAS<8, __m256, __m256, ggml_bf16_t, float, float> tb{
+            k, (const ggml_bf16_t *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
             ith, nth};
