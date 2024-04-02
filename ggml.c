@@ -11776,8 +11776,7 @@ static void ggml_compute_forward_mul_mat(
                     goto UseGgmlGemm1;
         return;
     }
-UseGgmlGemm1:
-    (void)0;
+UseGgmlGemm1:;
 
     if (params->type == GGML_TASK_TYPE_INIT) {
         if (ith != 0) {
@@ -11829,8 +11828,7 @@ UseGgmlGemm1:
                     goto UseGgmlGemm2;
         return;
     }
-UseGgmlGemm2:
-    (void)0;
+UseGgmlGemm2:;
 
     const int64_t nr0 = ne01;          // src0 rows
     const int64_t nr1 = ne1*ne12*ne13; // src1 rows
