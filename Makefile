@@ -109,9 +109,9 @@ MK_CFLAGS     += -Ofast
 HOST_CXXFLAGS += -Ofast
 MK_NVCCFLAGS  += -O3
 else
-MK_CFLAGS     += -O3
-MK_CXXFLAGS   += -O3
-MK_NVCCFLAGS  += -O3
+MK_CFLAGS     += -O3 -g
+MK_CXXFLAGS   += -O3 -g
+MK_NVCCFLAGS  += -O3 -g
 endif
 
 ifndef LLAMA_NO_CCACHE
