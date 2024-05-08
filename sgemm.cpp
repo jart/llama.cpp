@@ -117,6 +117,12 @@ inline U madd(T a, T b, U c) {
     return add(mul(a, b), c);
 }
 
+#if defined(__AVX512BF16__)
+template <> inline __m512 madd(__m512bh x, __m512bh y, __m512 z) {
+    return _mm512_dpbf16_ps(z, x, y);
+}
+#endif
+
 #if defined(__FMA__)
 #if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 template <>
@@ -235,6 +241,34 @@ template <> inline __m512 load(const ggml_fp16_t *p) {
     return _mm512_cvtph_ps(_mm256_loadu_si256((const __m256i *)p));
 }
 #endif // __AVX512F__
+
+#if defined(__AVX512BF16__)
+template <> inline __m512bh load(const ggml_bf16_t *p) {
+    return m512bh(_mm512_loadu_epi16(p));
+}
+#endif
+
+#if defined(__AVX2__)
+template <> inline __m256 load(const ggml_bf16_t *p) {
+    return _mm256_castsi256_ps(
+        _mm256_slli_epi32(
+            _mm256_cvtepu16_epi32(
+                _mm_loadu_si128(
+                    (const __m128i *)p)),
+            16));
+}
+#endif
+
+#if defined(__AVX512F__)
+template <> inline __m512 load(const ggml_bf16_t *p) {
+    return _mm512_castsi512_ps(
+        _mm512_slli_epi32(
+            _mm512_cvtepu16_epi32(
+                _mm256_loadu_si256(
+                    (const __m256i *)p)),
+            16));
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // FLOATING POINT MATRIX MULTIPLICATION
@@ -915,6 +949,58 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
             return false;
         tinyBLAS<4, float32x4_t, float32x4_t, ggml_fp16_t, float, float> tb{
             k, (const ggml_fp16_t *)A, lda,
+            (const float *)B, ldb,
+            (float *)C, ldc,
+            ith, nth};
+        tb.matmul(m, n, task);
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    case GGML_TYPE_BF16: {
+#if defined(__AVX512BF16__)
+        switch (Btype) {
+        case GGML_TYPE_BF16: {
+            if (k % 32)
+                return false;
+            if (task != GGML_TASK_TYPE_COMPUTE)
+                return true;
+            tinyBLAS<32, __m512, __m512bh, ggml_bf16_t, ggml_bf16_t, float> tb{
+                k, (const ggml_bf16_t *)A, lda,
+                (const ggml_bf16_t *)B, ldb,
+                (float *)C, ldc,
+                ith, nth};
+            tb.matmul(m, n, task);
+            return true;
+        }
+        default:
+            return false;
+        }
+#elif defined(__AVX512F__)
+        if (k % 16)
+            return false;
+        if (Btype != GGML_TYPE_F32)
+            return false;
+        if (task != GGML_TASK_TYPE_COMPUTE)
+            return true;
+        tinyBLAS<16, __m512, __m512, ggml_bf16_t, float, float> tb{
+            k, (const ggml_bf16_t *)A, lda,
+            (const float *)B, ldb,
+            (float *)C, ldc,
+            ith, nth};
+        tb.matmul(m, n, task);
+        return true;
+#elif defined(__AVX2__)
+        if (k % 8)
+            return false;
+        if (Btype != GGML_TYPE_F32)
+            return false;
+        if (task != GGML_TASK_TYPE_COMPUTE)
+            return true;
+        tinyBLAS<8, __m256, __m256, ggml_bf16_t, float, float> tb{
+            k, (const ggml_bf16_t *)A, lda,
             (const float *)B, ldb,
             (float *)C, ldc,
             ith, nth};
