@@ -528,7 +528,13 @@ int main(int argc, char ** argv) {
         exit(1);
     }
 
-    bool should_show_special_tokens = sparams.grammar.empty();
+    const bool special_token_render_override = params.enable_special_token_rendering || params.disable_special_token_rendering;
+    bool special_token_render = sparams.grammar.empty();
+    if (params.enable_special_token_rendering) {
+        special_token_render = true;
+    } else if (params.disable_special_token_rendering) {
+        special_token_render = false;
+    }
 
     while ((n_remain != 0 && !is_antiprompt) || params.interactive) {
         // predict
@@ -742,7 +748,7 @@ int main(int argc, char ** argv) {
         // display text
         if (input_echo && display) {
             for (auto id : embd) {
-                const std::string token_str = llama_token_to_piece(ctx, id, !params.conversation && should_show_special_tokens);
+                const std::string token_str = llama_token_to_piece(ctx, id, special_token_render_override ? special_token_render : !params.conversation && special_token_render);
                 printf("%s", token_str.c_str());
 
                 if (embd.size() > 1) {
@@ -908,7 +914,7 @@ int main(int argc, char ** argv) {
                     for (size_t i = original_size; i < embd_inp.size(); ++i) {
                         const llama_token token = embd_inp[i];
                         output_tokens.push_back(token);
-                        output_ss << llama_token_to_piece(ctx, token, should_show_special_tokens);
+                        output_ss << llama_token_to_piece(ctx, token, special_token_render);
                     }
 
                     n_remain -= line_inp.size();

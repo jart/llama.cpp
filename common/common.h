@@ -141,6 +141,8 @@ struct gpt_params {
     bool random_prompt     = false; // do not randomize prompt if none provided
     bool use_color         = false; // use color to distinguish generations and inputs
     bool interactive       = false; // interactive mode
+    bool enable_special_token_rendering = false; // override special token rendering to enabled mode regardless of default (useful for debugging)
+    bool disable_special_token_rendering = false; // override special token rendering to disabled mode regardless of default (useful for scripting)
     bool interactive_specials = false; // whether to allow special tokens from user, during interactive mode
     bool conversation      = false; // conversation mode (does not print special tokens and suffix/prefix)
     bool chatml            = false; // chatml mode (used for models trained on chatml syntax)

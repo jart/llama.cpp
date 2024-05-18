@@ -901,6 +901,22 @@ bool gpt_params_find_arg(int argc, char ** argv, const std::string & arg, gpt_pa
         params.interactive = true;
         return true;
     }
+    if (arg == "-eso" || arg == "--enable-special-out") {
+        params.enable_special_token_rendering = true;
+        if (params.disable_special_token_rendering) {
+            invalid_param = true;
+            return true;
+        }
+        return true;
+    }
+    if (arg == "-dso" ||arg == "--disable-special-out") {
+        params.disable_special_token_rendering = true;
+        if (params.enable_special_token_rendering) {
+            invalid_param = true;
+            return true;
+        }
+        return true;
+    }
     if (arg == "--interactive-specials") {
         params.interactive_specials = true;
         return true;
@@ -1432,6 +1448,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("  -h, --help            show this help message and exit\n");
     printf("  --version             show version and build info\n");
     printf("  -i, --interactive     run in interactive mode\n");
+    printf("  -eso --enable-special-out  enable special tokens print (overrides default behaviour)\n");
+    printf("  -dso --disable-special-out disable special tokens print (overrides default behaviour)\n");
     printf("  --interactive-specials allow special tokens in user text, in interactive mode\n");
     printf("  --interactive-first   run in interactive mode and wait for input right away\n");
     printf("  -cnv, --conversation  run in conversation mode (does not print special tokens and suffix/prefix)\n");
@@ -1493,8 +1511,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("                        modifies the likelihood of token appearing in the completion,\n");
     printf("                        i.e. `--logit-bias 15043+1` to increase likelihood of token ' Hello',\n");
     printf("                        or `--logit-bias 15043-1` to decrease likelihood of token ' Hello'\n");
-    printf("  --grammar GRAMMAR     BNF-like grammar to constrain generations (see samples in grammars/ dir)\n");
-    printf("  --grammar-file FNAME  file to read grammar from\n");
+    printf("  --grammar GRAMMAR     BNF-like grammar to constrain generations (see samples in grammars/ dir) (special token disabled by default)\n");
+    printf("  --grammar-file FNAME  file to read grammar from (special token disabled by default)\n");
     printf("  -j SCHEMA, --json-schema SCHEMA\n");
     printf("                        JSON schema to constrain generations (https://json-schema.org/), e.g. `{}` for any JSON object.\n");
     printf("                        For schemas w/ external $refs, use --grammar + example/json_schema_to_grammar.py instead\n");
